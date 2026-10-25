@@ -4,7 +4,7 @@
     "servers": {
       "gitmcp-trac-nghiem": {
         "type": "remote",
-        "url": "https://gitmcp.io/vietbacbacbac246933/Trac_nghiem_render"
+        "url": "https://gitmcp.io/vietbacbacbac246933/clone-tn"
       }
     }
   },

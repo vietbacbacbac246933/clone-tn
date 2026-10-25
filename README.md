@@ -9,7 +9,7 @@ offline. Chế độ **thi trực tiếp** (Socket.IO, phòng thi, chọn tên, 
 
 | Hạng mục | Bản LAN (gốc) | Bản này |
 |---|---|---|
-| Lưu trữ | File JSON trong `data/` | PostgreSQL nếu có `DATABASE_URL`, ngược lại vẫn dùng file (chỉ khi chạy local) |
+| Lưu trữ | File JSON trong `data/` | Local: file JSON. Vercel: PostgreSQL nếu có `DATABASE_URL`, không có thì dữ liệu nằm trong trình duyệt giáo viên (IndexedDB) |
 | Cổng | Cố định 3456 | `process.env.PORT` |
 | Trang giáo viên | `isLocalhost` (chỉ local) | Đăng nhập bằng `TEACHER_PASSWORD` + cookie ký HMAC |
 | Thi trực tiếp | Chọn tên, mở/đóng phòng, giám sát, nộp bài | **Đã gỡ** (không còn Socket.IO, `/api/students`, `/api/submit`…) |
@@ -27,12 +27,12 @@ nhưng không phát sinh kết quả mới.
 | `PORT` | Không | Cổng khi chạy local (mặc định 3456). Vercel tự cấp |
 | `TEACHER_PASSWORD` | **Có** | Mật khẩu đăng nhập giáo viên |
 | `SESSION_SECRET` | Nên có | Khóa ký cookie phiên |
-| `DATABASE_URL` | **Có trên Vercel** | Chuỗi kết nối PostgreSQL (thêm `?sslmode=require` nếu DB bên ngoài) |
+| `DATABASE_URL` | Không | Chuỗi kết nối PostgreSQL (thêm `?sslmode=require` nếu DB bên ngoài). Bỏ trống vẫn chạy được — xem mục 4 |
 | `PG_POOL_MAX` | Không | Số kết nối tối đa (mặc định 5) |
 | `NODE_ENV` | Không | `production` khi deploy |
 
-Xem `.env.example`. Trên Vercel, thiếu `DATABASE_URL` thì server trả lỗi 500 —
-filesystem của serverless không phải nơi lưu dữ liệu bền vững.
+Xem `.env.example`. `DATABASE_URL` là **tùy chọn**: bỏ trống thì chạy local lưu
+file trong `data/`; trên Vercel dữ liệu do trình duyệt giáo viên giữ (mục 4).
 
 **Nhập đề từ ảnh/OCR đã được gỡ.** Hiện chỉ hỗ trợ nhập đề từ file Word `.docx`
 (kể cả ảnh nhúng trong file Word).
@@ -53,23 +53,52 @@ node server.js
 ## 4. Triển khai trên Vercel
 
 1. Đẩy mã nguồn lên GitHub (repo riêng, **không** kèm `.env`).
-2. Tạo PostgreSQL (Neon, Supabase hoặc Vercel Marketplace) và lấy connection
-   string có SSL.
-3. Vercel → **Add New → Project** → chọn repo. Không cần đổi Build Command;
+2. Vercel → **Add New → Project** → chọn repo. Không cần đổi Build Command;
    `vercel.json` đã trỏ mọi request vào `api/index.js`.
-4. Thêm biến môi trường `TEACHER_PASSWORD`, `SESSION_SECRET`, `DATABASE_URL`.
-5. Deploy, mở `/teacher/login`.
+3. Environment Variables: `TEACHER_PASSWORD` (bắt buộc), `SESSION_SECRET` (nên
+   đặt; nếu bỏ trống sẽ dẫn xuất từ `TEACHER_PASSWORD` nên vẫn ổn định giữa các
+   instance). `DATABASE_URL` để trống nếu không dùng database.
+4. Deploy, mở `/teacher/login`.
 
-Lần đầu chạy, nếu bảng `quiz_kv` trống, server tự nạp (seed) câu hỏi và đề thi
-từ `data/` vào PostgreSQL.
+### 4.1. Không dùng database: dữ liệu nằm trên máy người dùng
+
+Đây là chế độ mặc định khi không đặt `DATABASE_URL`.
+
+- Trình duyệt giáo viên giữ toàn bộ file JSON trong `data/` và ảnh đã tải lên
+  trong **IndexedDB** (`trac-nghiem-state`), tự đồng bộ vào instance serverless
+  đang phục vụ request qua `/api/state/sync`.
+- Mỗi instance Vercel chỉ giữ bản tạm trong `/tmp`. Instance lạnh trả
+  `409 NEED_STATE`, trang giáo viên gửi lại dữ liệu rồi tự thử lại — người dùng
+  không thấy lỗi.
+- Nên dùng **một máy + một trình duyệt** làm máy giáo viên. Trình duyệt khác mở
+  lần đầu sẽ nhận dữ liệu đang có trên instance rồi tự lưu; nếu hai máy cùng sửa,
+  máy gửi sau sẽ thắng.
+- Nút **💾 Sao lưu** tải toàn bộ dữ liệu ra 1 file JSON; **📂 Khôi phục** nạp lại
+  và thay thế toàn bộ dữ liệu hiện tại. Hãy sao lưu định kỳ: xóa dữ liệu trang
+  web (Clear site data) hoặc đổi máy là mất dữ liệu nếu chưa sao lưu.
+- Giới hạn body của Vercel ~4,5 MB (ảnh lưu dạng base64 nên phình ~33%). Giữ tổng
+  dữ liệu dưới ~3 MB; vượt quá thì bớt đề/ảnh hoặc dùng PostgreSQL.
+- **Không lưu được bài làm online của học sinh** vì không có nơi lưu bền vững:
+  `/api/review/*` (và `/on-tap`) trả `503`. Hãy giao bài bằng file HTML offline.
+- Ảnh tải lên nằm trong `/tmp` của từng instance. Trang giáo viên tự đồng bộ lại
+  khi ảnh lỗi, nhưng lần đầu mở ở instance lạnh có thể thấy ảnh trắng trong giây
+  lát; tải lại trang là được.
+
+### 4.2. Dùng PostgreSQL (tùy chọn)
+
+Đặt `DATABASE_URL` (Neon, Supabase, Vercel Marketplace…). Khi có DB, dữ liệu nằm
+trong bảng `quiz_kv`/`quiz_assets`, đồng bộ trình duyệt bị tắt. Lần đầu chạy, nếu
+bảng `quiz_kv` trống, server tự nạp (seed) câu hỏi và đề thi từ `data/`.
 
 ## 5. Luồng sử dụng
 
 1. Giáo viên đăng nhập `/teacher`.
 2. Nhập đề từ Word (hoặc soạn tay), tạo lớp và bài kiểm tra.
 3. Giao bài cho học sinh bằng một trong hai cách:
-   - **Ôn tập online**: công khai đề, học sinh mở `/on-tap` chọn đề.
-   - **File offline**: xuất 1 file HTML, gửi qua Zalo/Drive… (không cần server).
+   - **Ôn tập online**: công khai đề, học sinh mở `/on-tap` chọn đề (cần
+     `DATABASE_URL`; không có DB thì dùng cách dưới).
+   - **File offline**: xuất 1 file HTML, gửi qua Zalo/Drive… (không cần server,
+     dùng được cả khi deploy Vercel không có database).
 4. Giáo viên xem kết quả thi cũ (nếu có) và xuất Excel.
 
 ### Nhập đề thi từ Word (.docx)
@@ -220,10 +249,12 @@ API mới (đều yêu cầu đăng nhập giáo viên):
 - **Phiên xem trước nhập đề nằm trong RAM** (30 phút). Trên Vercel, nếu bước
   “Xác nhận lưu” rơi vào instance khác, server báo “phiên đã hết hạn” và giáo
   viên phải nhập lại file. Chạy local/1 instance thì không gặp.
-- **Filesystem serverless là tạm**: mọi dữ liệu phải nằm trong PostgreSQL
-  (`DATABASE_URL`). Không dựa vào `data/*.json` trên Vercel.
+- **Filesystem serverless là tạm**: trên Vercel, dữ liệu bền nằm trong IndexedDB
+  của trình duyệt giáo viên (không có `DATABASE_URL`) hoặc trong PostgreSQL. Xem
+  mục 4.1 để biết giới hạn và cách sao lưu.
 - **Không còn thi trực tiếp**: không có kết quả thi mới; tab Kết quả chỉ xem dữ
-  liệu cũ đã có trong database.
+  liệu cũ đã có. Không có DB thì `/on-tap` cũng không dùng được — xuất file HTML
+  offline cho học sinh.
 - Chưa giới hạn tần suất ở mọi API (chỉ có ở đăng nhập giáo viên).
 
 ## 7. Cấu trúc thư mục
@@ -240,6 +271,7 @@ lib/import-sessions.js # Phiên xem trước khi nhập đề (RAM, tự hết h
 lib/mem-monitor.js   # Bộ đo RAM nền (process.memoryUsage mỗi 30s)
 scripts/mem-stats.js # Tính thống kê RAM nền từ log [MEM]
 public/              # Trang ôn tập, trang đăng nhập, CSS/JS tĩnh
+public/state-store.js # Đồng bộ dữ liệu vào IndexedDB + sao lưu/khôi phục
 data/                # Dữ liệu gieo ban đầu (câu hỏi, đề thi, file mẫu)
 tests/               # Test (chạy tay, cần server đang chạy)
 render.yaml          # Cấu hình cũ cho Render (không dùng cho Vercel)

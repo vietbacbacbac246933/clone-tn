@@ -131,6 +131,8 @@ var PORT = parseInt(process.env.PORT, 10) || 3456;
 app.set('trust proxy', 1);
 
 // Middleware
+// Snapshot dữ liệu giáo viên có thể lớn hơn body thường; Vercel chặn ~4,5 MB.
+app.use('/api/state/sync', express.json({ limit: '4mb' }));
 app.use('/api/export/offline', express.json({ limit: '50mb' }));
 app.use(express.json({ limit: '2mb' }));
 
@@ -237,6 +239,90 @@ app.post('/api/teacher/login', (req, res) => {
 app.post('/api/teacher/logout', (req, res) => {
     auth.clearCookie(res);
     res.json({ success: true });
+});
+
+// ========== DỮ LIỆU LƯU TRÊN MÁY NGƯỜI DÙNG (không cần database) ==========
+// Trên Vercel, filesystem là tạm. Trình duyệt giáo viên giữ bản dữ liệu đầy đủ
+// trong IndexedDB và đồng bộ vào RAM của từng instance qua các route dưới đây.
+function sendStateSnapshot(res) {
+    var snap = DATA.snapshot();
+    snap.ephemeral = DATA.ephemeral;
+    snap.mode = DATA.mode;
+    res.json(snap);
+}
+
+app.get('/api/state', function (req, res) {
+    if (!isTeacher(req)) return res.status(403).json({ error: 'Không có quyền' });
+    sendStateSnapshot(res);
+});
+
+app.post('/api/state/sync', function (req, res) {
+    if (!isTeacher(req)) return res.status(403).json({ error: 'Không có quyền' });
+    var body = req.body || {};
+    var hasLocal = body.hasLocal === true && body.files && typeof body.files === 'object';
+    var force = body.force === true;
+
+    // Serverless: trình duyệt là nguồn chính. Chạy local: chỉ ghi đè khi
+    // người dùng bấm "Khôi phục" (force), để không mất dữ liệu trên đĩa.
+    if (hasLocal && (DATA.ephemeral || force)) {
+        DATA.restore(body.files, body.assets || {}, body.version);
+        loadAllData();
+        safeLog('[STATE] Đã nạp dữ liệu từ trình duyệt (' + Object.keys(body.files).length + ' file)');
+    }
+    sendStateSnapshot(res);
+});
+
+// Instance mới/cold start chưa có dữ liệu mới nhất -> 409 để trình duyệt gửi lại.
+app.use(function (req, res, next) {
+    if (!DATA.ephemeral) return next();
+    if (req.path.indexOf('/api/') !== 0) return next();
+    if (req.path.indexOf('/api/state') === 0) return next();
+    if (req.path.indexOf('/api/review/') === 0) return next();
+    if (req.path.indexOf('/api/assets/') === 0) return next();
+    if (!isTeacher(req)) return next();
+
+    var version = req.get('x-state-version');
+    if (version && version !== DATA.getVersion()) {
+        return res.status(409).json({ success: false, code: 'NEED_STATE', version: DATA.getVersion() });
+    }
+    next();
+});
+
+// Trả kèm snapshot mới sau mỗi thay đổi để trình duyệt lưu ngay.
+app.use(function (req, res, next) {
+    if (!DATA.ephemeral) return next();
+    if (req.path.indexOf('/api/') !== 0) return next();
+    if (req.path.indexOf('/api/state') === 0) return next();
+    if (req.path.indexOf('/api/review/') === 0) return next();
+
+    var before = DATA.getVersion();
+    var sendJson = res.json.bind(res);
+    res.json = function (body) {
+        try {
+            if (body && typeof body === 'object' && !Buffer.isBuffer(body) && !Array.isArray(body)) {
+                var after = DATA.getVersion();
+                if (after !== before) {
+                    var snap = DATA.snapshot();
+                    body.__state = snap.files;
+                    body.__assets = snap.assets;
+                    body.__version = after;
+                }
+            }
+        } catch (e) { /* lỗi đồng bộ không được làm hỏng response */ }
+        return sendJson(body);
+    };
+    next();
+});
+
+// Không có database thì bài làm online của học sinh không lưu bền được.
+// Chặn rõ ràng thay vì để mất dữ liệu âm thầm; dùng file HTML offline thay thế.
+app.use('/api/review', function (req, res, next) {
+    if (DATA.ephemeral) {
+        return res.status(503).json({
+            error: 'Bản deploy Vercel không lưu được bài làm online. Giáo viên hãy xuất file HTML offline cho học sinh.'
+        });
+    }
+    next();
 });
 
 // Kiểm tra phiên đăng nhập (dùng cho giao diện)
@@ -4666,7 +4752,7 @@ if (require.main === module) {
 
 // Serverless (Vercel): request doi storage san sang truoc khi vao Express.
 module.exports = function(req, res) {
-    initApp().then(function() {
+    Promise.resolve().then(initApp).then(function() {
         app(req, res);
     }).catch(function(err) {
         console.error('[LOI] Khoi tao storage that bai: ' + (err && err.message));

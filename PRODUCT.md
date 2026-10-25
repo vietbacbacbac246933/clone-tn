@@ -28,8 +28,8 @@ Sản phẩm chạy trên **hạ tầng tự host/serverless, không thu phí th
 
 ## Operating Context
 
-- **Hạ tầng: Internet, không phải LAN.** Server chạy trên Vercel (serverless) kèm PostgreSQL; tên gọi cũ "LAN" là di sản của bản gốc chạy trong mạng nội bộ.
-- **Serverless, nhiều instance.** Không có trạng thái nghiệp vụ nào được giữ trong RAM giữa các request; dữ liệu nằm trong PostgreSQL.
+- **Hạ tầng: Internet, không phải LAN.** Server chạy trên Vercel (serverless); tên gọi cũ "LAN" là di sản của bản gốc chạy trong mạng nội bộ.
+- **Serverless, nhiều instance.** Không có trạng thái nghiệp vụ nào được giữ trong RAM giữa các request. Dữ liệu nằm trong PostgreSQL nếu có `DATABASE_URL`, ngược lại nằm trong IndexedDB của trình duyệt giáo viên và được đồng bộ vào từng instance.
 - **Đầu vào là đề có sẵn:** `.docx` do giáo viên soạn. Giáo viên nhập đề trước khi giao bài.
 - **Thiết bị học sinh là điện thoại** (màn hình nhỏ, cảm ứng, bàn phím ảo) — không phải máy tính phòng máy.
 - **Gói miễn phí của Vercel** có giới hạn thời gian chạy function, nên lần đầu vào có thể chậm do cold start.
@@ -44,7 +44,7 @@ Sản phẩm chạy trên **hạ tầng tự host/serverless, không thu phí th
 - Bản xem trước sửa được: sửa nội dung/đáp án, chọn đáp án đúng, đổi loại câu (một đáp án / nhiều đáp án / Đúng–Sai), thêm–bớt đáp án, điểm từng câu, bật/tắt từng câu, lọc nhanh *Tất cả / Đọc hoàn hảo / Cần kiểm tra*.
 - Công khai đề cho ôn tập (`/on-tap`); học sinh tự làm, nộp và xem điểm/đáp án.
 - Xuất bài kiểm tra thành **1 file HTML offline** (chế độ ôn tập hoặc thi 1 lượt, có hẹn giờ, trộn câu/đáp án, chống copy).
-- Xem và xuất Excel kết quả thi **cũ** đã lưu trong database (không phát sinh kết quả mới).
+- Xem và xuất Excel kết quả thi **cũ** đã lưu trong dữ liệu hiện có (không phát sinh kết quả mới).
 - Công thức toán (KaTeX) và ảnh nhúng trong câu hỏi được giữ.
 
 Đã gỡ (không còn trong mã nguồn):
@@ -54,7 +54,7 @@ Sản phẩm chạy trên **hạ tầng tự host/serverless, không thu phí th
 
 Ràng buộc kỹ thuật (không được giả định là có thể thay đổi dễ dàng):
 
-- Stack hiện tại: Node.js + Express, giao diện HTML/CSS/JS thuần, lưu trữ PostgreSQL khi có `DATABASE_URL` (bắt buộc trên Vercel) và file JSON khi chạy local. Mã nguồn đã trả lời câu hỏi stack, không phải quyết định mở.
+- Stack hiện tại: Node.js + Express, giao diện HTML/CSS/JS thuần, lưu trữ PostgreSQL khi có `DATABASE_URL` và file JSON khi chạy local; trên Vercel không có DB thì dữ liệu do trình duyệt giáo viên giữ. Mã nguồn đã trả lời câu hỏi stack, không phải quyết định mở.
 - **Phiên xem trước nhập đề nằm trong RAM** — trên serverless nhiều instance, bước xác nhận có thể phải nhập lại file.
 - **Body request của Vercel ~4,5 MB** — nhỏ hơn giới hạn 15 MB của file `.docx`.
 - Xác thực giáo viên hiện là **một mật khẩu duy nhất** (`TEACHER_PASSWORD`) + cookie ký HMAC.

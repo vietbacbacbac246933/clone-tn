@@ -1182,6 +1182,8 @@
             <div class="header-info">
                 <span>Tổng câu hỏi: <strong id="totalQuestions">0</strong></span>
                 <span>Học sinh đã nộp: <strong id="totalSubmitted">0</strong></span>
+                <button class="btn btn-secondary" onclick="backupData()" title="Tải toàn bộ dữ liệu về máy" style="padding:8px 12px; font-size:0.85em;">💾 Sao lưu</button>
+                <button class="btn btn-secondary" onclick="restoreData()" title="Khôi phục từ file sao lưu" style="padding:8px 12px; font-size:0.85em;">📂 Khôi phục</button>
                 <button class="btn btn-secondary" onclick="teacherLogout()" style="padding:8px 16px; font-size:0.85em;">Đăng xuất</button>
             </div>
         </header>
@@ -1884,6 +1886,7 @@ C. Công thức nước là H₂O. (Đ)</pre>
         </div>
     </div>
 
+    <script src="/state-store.js"></script>
     <script>
         // ========== XỬ LÝ HẾT PHIÊN ĐĂNG NHẬP ==========
         // API trả 401 (chưa đăng nhập / hết phiên) -> quay về trang đăng nhập

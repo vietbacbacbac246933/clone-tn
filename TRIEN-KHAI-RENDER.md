@@ -116,8 +116,8 @@ node server.js
    - Build: `npm install`
    - Start: `npm start`
    - Health Check Path: `/api/ping`
-3. Environment: `TEACHER_PASSWORD`, `DATABASE_URL`, `SESSION_SECRET`
-   (nút Generate), `NODE_VERSION=18`.
+3. Environment: `TEACHER_PASSWORD`, `SESSION_SECRET` (nút Generate),
+   `DATABASE_URL` (tùy chọn), `NODE_VERSION=18`.
 4. Deploy.
 
 ### Biến môi trường
@@ -126,7 +126,7 @@ node server.js
 | `PORT` | Không | Render tự cấp, không đặt tay |
 | `TEACHER_PASSWORD` | **Có** | Mật khẩu giáo viên |
 | `SESSION_SECRET` | Nên có | Khoá ký cookie; bỏ trống sẽ suy ra từ `TEACHER_PASSWORD` |
-| `DATABASE_URL` | **Có** | `postgresql://...` |
+| `DATABASE_URL` | Không | `postgresql://...`. Bỏ trống: xem mục 4 README (dữ liệu trên máy người dùng khi chạy Vercel) |
 | `PG_POOL_MAX` | Không | Mặc định 5 |
 | `NODE_ENV` | Không | `production` |
 | `OCR_PROVIDER` | Không | `auto` / `tesseract` / `ocrspace` (mặc định `auto`) |
