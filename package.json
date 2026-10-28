@@ -14,6 +14,7 @@
     "test:question-editor": "node tests/test-question-editor.js",
     "test:review": "node tests/test-review.js",
     "test:mem": "node tests/test-mem-monitor.js",
+    "test:open-in-browser": "node tests/test-open-in-browser.js",
     "build": "node build-scripts/build.js",
     "admin": "node license/admin-tool.js",
     "generate-license": "node license/admin-tool.js generate"
