@@ -174,13 +174,24 @@ Số trên nút được cập nhật ngay khi giáo viên sửa (chọn đáp �
 có thể lọc “Cần kiểm tra” rồi sửa lần lượt cho đến khi về 0. Đổi bộ lọc **không**
 làm mất nội dung đã sửa và **không** tự lưu gì.
 
-### Xuất bài kiểm tra offline (1 file HTML)
+### Xuất bài kiểm tra offline (gói HTML + PWA)
 
 Xuất được ở **hai chỗ**, cùng một cấu hình:
 
 - **Tab Câu hỏi → 📄 Nhập đề từ Word / Xuất file offline:** xuất thẳng ngân hàng câu
   hỏi đang mở (đúng câu hỏi và điểm đang có) — không phải nhập lại file Word.
 - **Bản xem trước sau khi nhập Word:** xuất ngay bản đang xem, chưa cần lưu.
+
+Mỗi lần xuất tạo **một gói `.zip`** gồm:
+
+- file bài thi `.html` (sinh từ `template/exam_template.html` + dữ liệu đề),
+- `manifest.webmanifest` và `sw.js` (PWA, tên/cache riêng theo từng đề),
+- `icon-192.png`, `icon-512.png`.
+
+Giải nén **cả gói** vào một thư mục rồi tải cả thư mục lên GitHub Pages (hoặc hosting
+HTTPS). Mỗi đề nên nằm trong thư mục riêng để `manifest.webmanifest`, `sw.js` và icon
+không ghi đè nhau. Mở file HTML trực tiếp trên máy vẫn làm bài được, nhưng chỉ bật
+được chế độ ngoại tuyến khi chạy qua HTTPS.
 
 File `.html` tạo ra tự chạy, không cần server hay mạng:
 

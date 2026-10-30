@@ -94,8 +94,21 @@ check('la mot file HTML day du', () => {
     assert.ok(html.includes('id="quiz-data"'));
     assert.ok(html.includes('offlineQuiz:'));
 });
-check('chi co 2 the script (du lieu + ung dung)', () => {
-    assert.strictEqual((html.match(/<\/script>/g) || []).length, 2);
+check('lay tu template that (PWA + thanh trang thai offline)', () => {
+    assert.ok(html.includes('<link rel="manifest" href="./manifest.webmanifest">'), 'thieu manifest');
+    assert.ok(html.includes('id="offline-status"'), 'thieu thanh trang thai offline');
+    assert.ok(html.includes("navigator.serviceWorker.register('./sw.js')"), 'thieu dang ky service worker');
+    assert.ok(html.includes('viewport-fit=cover'), 'thieu meta viewport cua template');
+});
+check('khong con placeholder nao trong file xuat', () => {
+    assert.ok(!/\{\{[A-Z_]+\}\}/.test(html), 'con sot {{...}}');
+});
+check('chi co 1 vung du lieu quiz-data', () => {
+    assert.strictEqual((html.match(/id="quiz-data"/g) || []).length, 1);
+});
+check('tieu de co dau nhay khong pha duoc the', () => {
+    const quoted = offline.renderQuiz({ title: 'Đề "thử" & <b>', questions: [], settings: {} });
+    assert.ok(quoted.includes('content="Đề &quot;thử&quot; &amp; '), 'meta title chua escape');
 });
 check('noi dung dap an duoc nhung', () => {
     assert.ok(html.includes('Thủ đô Việt Nam?'));
@@ -109,7 +122,7 @@ check('noi dung chua </script> khong pha duoc file', () => {
         questions: evilQuestions,
         settings: { mode: 'exam' }
     });
-    assert.strictEqual((evil.match(/<\/script>/g) || []).length, 2);
+    assert.strictEqual((evil.match(/<\/script>/g) || []).length, (html.match(/<\/script>/g) || []).length);
     assert.ok(!evil.includes('</script><script>alert(1)</script>'));
     assert.ok(evil.includes('\\u003c/script>'), 'JSON chua duoc escape "<"');
 });
@@ -207,6 +220,38 @@ check('tra loi ngan: o nhap ro rang tren dien thoai', () => {
     assert.ok(html.includes('enterkeyhint="done"'), 'o nhap thieu enterkeyhint');
     assert.ok(html.includes('class="short-hint"'), 'thieu goi y dinh dang dap an');
     assert.ok(html.includes('aria-label="Trả lời ngắn cho câu \' + (pos + 1) + \'"'), 'o nhap thieu nhan cho trinh doc man hinh');
+});
+
+console.log('renderPackage');
+const pkg = offline.renderPackage({
+    title: 'Đề "thử"',
+    questions: questions,
+    settings: { mode: 'exam' },
+    fileName: 'De_thu.html'
+});
+check('goi xuat gom HTML + manifest + service worker', () => {
+    assert.strictEqual(pkg.fileName, 'De_thu.html');
+    assert.ok(pkg.html.includes('id="quiz-data"'));
+    assert.ok(pkg.manifest.includes('"start_url": "./De_thu.html"'));
+    assert.ok(pkg.serviceWorker.includes("var APP_FILE = './De_thu.html';"));
+});
+check('manifest giu tieng Viet va dung ten de', () => {
+    const m = JSON.parse(pkg.manifest);
+    assert.strictEqual(m.name, 'Đề "thử"');
+    assert.strictEqual(m.start_url, './De_thu.html');
+    assert.strictEqual(m.icons.length, 2);
+    assert.ok(m.short_name.length > 0);
+});
+check('service worker cache rieng theo ten file va noi dung', () => {
+    const other = offline.renderPackage({ title: 'Đề "thử"', questions, settings: { mode: 'practice' }, fileName: 'De_thu.html' });
+    assert.notStrictEqual(pkg.cacheName, other.cacheName, 'doi noi dung phai doi cache');
+    const again = offline.renderPackage({ title: 'Đề "thử"', questions, settings: { mode: 'exam' }, fileName: 'De_thu.html' });
+    assert.strictEqual(pkg.cacheName, again.cacheName, 'cung noi dung phai cung cache');
+    assert.ok(pkg.serviceWorker.includes("'" + pkg.cacheName + "'"));
+});
+check('ten file HTML la khong hop le -> bao loi ro rang', () => {
+    assert.throws(() => offline.renderPackage({ title: 'X', questions, fileName: '../x.html' }), /không hợp lệ/);
+    assert.throws(() => offline.renderPackage({ title: 'X', questions, fileName: 'x.php' }), /không hợp lệ/);
 });
 
 console.log('');

@@ -1383,8 +1383,8 @@
                     </div>
 
                     <div style="border:1px solid #c7d2fe; border-radius:10px; padding:14px 16px; margin-bottom:16px; background:#f5f7ff;">
-                        <div style="font-weight:600; color:#3730a3; margin-bottom:4px; font-size:0.92em;">📄 Xuất bài kiểm tra offline (file HTML tự chạy, không cần mạng)</div>
-                        <div style="font-size:0.82em; color:#666; margin-bottom:10px;">Học sinh mở file bằng trình duyệt để làm bài. Không cần lưu vào ngân hàng câu hỏi.</div>
+                        <div style="font-weight:600; color:#3730a3; margin-bottom:4px; font-size:0.92em;">📄 Xuất bài kiểm tra offline (gói HTML + PWA, không cần mạng)</div>
+                        <div style="font-size:0.82em; color:#666; margin-bottom:10px;">Tải gói .zip gồm file HTML và các file PWA. Giải nén vào một thư mục rồi tải cả thư mục lên GitHub Pages; học sinh mở file HTML bằng trình duyệt để làm bài.</div>
                         <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
                             <label style="flex:1 1 220px; font-size:0.84em; color:#555;">Chế độ
                                 <select id="offlineMode" onchange="updateOfflineOptionsUI()" style="width:100%; margin-top:5px; padding:8px 10px; border:1px solid #ddd; border-radius:7px; font-size:0.95em; background:#fff;">
@@ -1423,7 +1423,7 @@
                     <div id="importPreviewStatus" style="font-size:0.9em; color:#666;"></div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap;">
                         <button onclick="cancelImportPreview()" style="background:#eee; color:#333; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:0.95em;">Hủy</button>
-                        <button id="offlineExportBtn" onclick="exportOfflineQuiz()" style="background:#0f766e; color:#fff; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.95em;">⬇ Tải file offline</button>
+                        <button id="offlineExportBtn" onclick="exportOfflineQuiz()" style="background:#0f766e; color:#fff; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.95em;">⬇ Tải gói offline (.zip)</button>
                         <button id="importConfirmBtn" onclick="confirmImportPreview()" style="background:#2e7d32; color:#fff; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.95em;">Xác nhận lưu</button>
                     </div>
                 </div>
@@ -1455,7 +1455,7 @@
                 <div style="border-top: 1px solid #dbe2ee; margin: 16px 0 12px;"></div>
 
                 <div style="font-weight: 600; color: #333; font-size: 0.9em; margin-bottom: 4px;">Xuất file offline</div>
-                <div style="font-size: 0.82em; color: #666; margin-bottom: 10px;">Tải 1 file HTML tự chạy để gửi học sinh — dùng đúng câu hỏi và điểm đang có, không cần nhập lại.</div>
+                <div style="font-size: 0.82em; color: #666; margin-bottom: 10px;">Tải gói .zip (HTML + manifest + service worker + icon) dùng đúng câu hỏi và điểm đang có, không cần nhập lại. Giải nén vào một thư mục trước khi tải lên GitHub Pages.</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
                     <label style="flex: 1 1 220px; font-size: 0.84em; color: #555;">Chế độ
                         <select id="bankOfflineMode" onchange="updateBankOfflineUI()" style="width: 100%; margin-top: 5px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 7px; font-size: 0.95em; background: #fff;">
@@ -1483,7 +1483,7 @@
                     </label>
                 </div>
                 <button id="bankOfflineExportBtn" onclick="exportBankOffline()" style="margin-top: 12px; background: #0f766e; color: #fff; border: none; padding: 10px 22px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em;">
-                    ⬇ Tải file offline (<span id="bankOfflineCount">0</span> câu)
+                    ⬇ Tải gói offline (<span id="bankOfflineCount">0</span> câu)
                 </button>
             </details>
 
@@ -5311,8 +5311,8 @@ C. Công thức nước là H₂O. (Đ)</pre>
             }
         }
 
-        // Tải file HTML offline từ server — dùng chung cho xuất từ bản xem trước
-        // và xuất thẳng từ ngân hàng câu hỏi.
+        // Tải gói offline (HTML + PWA) từ server — dùng chung cho xuất từ bản xem
+        // trước và xuất thẳng từ ngân hàng câu hỏi.
         async function fetchOfflineFile(payload) {
             const res = await fetch('/api/export/offline', {
                 method: 'POST',
@@ -5333,7 +5333,7 @@ C. Công thức nước là H₂O. (Đ)</pre>
             }
 
             const blob = await res.blob();
-            const fileName = res.headers.get('X-Quiz-Filename') || 'bai-kiem-tra.html';
+            const fileName = res.headers.get('X-Quiz-Filename') || 'bai-kiem-tra.zip';
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -5384,7 +5384,7 @@ C. Công thức nước là H₂O. (Đ)</pre>
                         points: (Number(q.points) > 0) ? Number(q.points) : 1
                     }))
                 });
-                showNotification('✔ Đã tải ' + fileName + ' (' + list.length + ' câu).', 'success');
+                showNotification('✔ Đã tải ' + fileName + ' (' + list.length + ' câu). Giải nén rồi tải cả thư mục lên GitHub Pages.', 'success');
             } catch (err) {
                 alert('✘ ' + err.message);
             } finally {
@@ -5446,7 +5446,7 @@ C. Công thức nước là H₂O. (Đ)</pre>
                         points: (Number(q.points) > 0) ? Number(q.points) : 1
                     }))
                 });
-                setImportStatus('✔ Đã tạo file <b>' + escapeHtml(fileName) + '</b> (' + included.length + ' câu). Gửi file này cho học sinh.');
+                setImportStatus('✔ Đã tạo gói <b>' + escapeHtml(fileName) + '</b> (' + included.length + ' câu). Giải nén rồi tải cả thư mục lên GitHub Pages.');
             } catch (err) {
                 setImportStatus('');
                 alert('✘ ' + err.message);
